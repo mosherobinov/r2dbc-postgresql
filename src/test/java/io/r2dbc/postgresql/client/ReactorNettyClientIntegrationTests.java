@@ -37,7 +37,6 @@ import io.r2dbc.postgresql.message.frontend.ExecutionType;
 import io.r2dbc.postgresql.message.frontend.FrontendMessage;
 import io.r2dbc.postgresql.message.frontend.Query;
 import io.r2dbc.postgresql.message.frontend.Sync;
-import io.r2dbc.postgresql.util.PgBouncer;
 import io.r2dbc.postgresql.util.PostgresqlServerExtension;
 import io.r2dbc.spi.R2dbcNonTransientResourceException;
 import io.r2dbc.spi.R2dbcPermissionDeniedException;
@@ -46,14 +45,18 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.util.ReflectionUtils;
 import reactor.core.publisher.EmitterProcessor;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.UnicastProcessor;
+import reactor.core.scheduler.Schedulers;
 import reactor.netty.Connection;
 import reactor.test.StepVerifier;
+import reactor.util.Logger;
+import reactor.util.Loggers;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLSession;
@@ -78,6 +81,8 @@ import static org.assertj.core.api.Assumptions.assumeThat;
 
 final class ReactorNettyClientIntegrationTests {
 
+    private final Logger logger = Loggers.getLogger(this.getClass());
+
     @RegisterExtension
     static final PostgresqlServerExtension SERVER = new PostgresqlServerExtension();
 
@@ -92,6 +97,22 @@ final class ReactorNettyClientIntegrationTests {
             .exchange(this.getClass().getName(), m -> new PasswordAuthenticationHandler(SERVER.getPassword(), SERVER.getUsername()), client, SERVER.getDatabase(), SERVER.getUsername(),
                 Collections.emptyMap()))
         .block();
+
+    @Test
+    @Timeout(50)
+    void reproduceQueryNotCompleted() {
+        IntStream.range(0, 20000)
+                 .forEach(i -> SERVER.getJdbcOperations().update("INSERT INTO test VALUES(?)", i));
+
+        this.client
+                .exchange(Mono.just(new Query("SELECT value FROM test")))
+                .log(logger)
+                .limitRate(1)
+                .publishOn(Schedulers.elastic())
+                .as(StepVerifier::create)
+                .thenConsumeWhile((t) -> true)
+                .verifyComplete();
+    }
 
     @Test
     void close() {
