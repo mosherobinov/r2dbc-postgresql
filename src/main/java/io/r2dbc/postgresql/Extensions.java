@@ -20,8 +20,7 @@ import io.r2dbc.postgresql.extension.Extension;
 import reactor.util.Logger;
 import reactor.util.Loggers;
 
-import java.security.AccessController;
-import java.security.PrivilegedAction;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -59,8 +58,7 @@ final class Extensions {
     static Extensions autodetect() {
         logger.debug("Discovering Extensions using ServiceLoader");
 
-        ServiceLoader<Extension> extensions = AccessController.doPrivileged((PrivilegedAction<ServiceLoader<Extension>>) () -> ServiceLoader.load(Extension.class,
-            Extensions.class.getClassLoader()));
+        ServiceLoader<Extension> extensions = ServiceLoader.load(Extension.class, Extensions.class.getClassLoader());
 
         List<Extension> discovered = new ArrayList<>();
         for (Extension extension : extensions) {
