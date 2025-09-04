@@ -47,7 +47,7 @@ public final class SASLResponse implements FrontendMessage {
     public SASLResponse(ByteBuffer data) {
         Assert.requireNonNull(data, "data must not be null");
 
-        this.data = (ByteBuffer) data.flip();
+        this.data = data.flip();
     }
 
     @Override
