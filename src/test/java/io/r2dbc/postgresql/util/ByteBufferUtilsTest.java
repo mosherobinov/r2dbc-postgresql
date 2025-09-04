@@ -161,4 +161,20 @@ class ByteBufferUtilsTest {
         
         assertThat(decoded).isEqualTo(original);
     }
+
+    @Test
+    void encodeBufferStateAfterEncoding() {
+        String original = "Hello World";
+        ByteBuffer result = ByteBufferUtils.encode(original);
+        
+        // Buffer should be positioned at the end (ready for writing, not reading)
+        assertThat(result.position()).isEqualTo(result.limit());
+        assertThat(result.remaining()).isZero();
+        
+        // But should contain the encoded data when flipped for reading
+        result.flip();
+        assertThat(result.remaining()).isEqualTo(original.getBytes(StandardCharsets.UTF_8).length);
+        String decoded = StandardCharsets.UTF_8.decode(result).toString();
+        assertThat(decoded).isEqualTo(original);
+    }
 }
